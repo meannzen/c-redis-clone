@@ -1,6 +1,5 @@
 #include "server.h"
 #include <arpa/inet.h>
-#include <errno.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,16 +13,16 @@
 #define BACKLOG 10
 
 void handle_sigchld(int sig) {
-    while (waitpid(-1, NULL, WNOHANG) > 0);
+    while (waitpid(-1, nullptr, WNOHANG) > 0);
 }
 
-void handle_client(int client_fd, const char* client_ip, int client_port) {
+void handle_client(const int client_fd, const char* client_ip, const int client_port) {
     char buffer[BUFFER_SIZE];
 
     printf("Client %s:%d connected (pid %d)\n", client_ip, client_port, getpid());
 
     while (1) {
-        ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
+        const ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
         if (bytes_read <= 0) {
             if (bytes_read < 0) perror("read failed");
             else printf("Client %s:%d disconnected\n", client_ip, client_port);
@@ -39,17 +38,17 @@ void handle_client(int client_fd, const char* client_ip, int client_port) {
     close(client_fd);
 }
 
-void run_server(int port) {
+void run_server(const int port) {
     signal(SIGPIPE, SIG_IGN);
     signal(SIGCHLD, handle_sigchld);
 
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    const int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
         perror("socket creation failed");
         exit(1);
     }
 
-    int reuse = 1;
+    constexpr int reuse = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     struct sockaddr_in serv_addr = {
@@ -76,7 +75,7 @@ void run_server(int port) {
     socklen_t client_len = sizeof(client_addr);
 
     while (1) {
-        int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
+        const int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
         if (client_fd < 0) {
             perror("accept failed");
             continue;
@@ -84,9 +83,9 @@ void run_server(int port) {
 
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-        int client_port = ntohs(client_addr.sin_port);
+        const int client_port = ntohs(client_addr.sin_port);
 
-        pid_t pid = fork();
+        const pid_t pid = fork();
         if (pid == 0) {
             close(server_fd);
             handle_client(client_fd, client_ip, client_port);
