@@ -13,7 +13,7 @@
 #define BACKLOG 10
 
 void handle_sigchld(int sig) {
-    while (waitpid(-1, nullptr, WNOHANG) > 0);
+    while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
 void handle_client(const int client_fd, const char* client_ip, const int client_port) {
@@ -22,7 +22,13 @@ void handle_client(const int client_fd, const char* client_ip, const int client_
     printf("Client %s:%d connected (pid %d)\n", client_ip, client_port, getpid());
 
     while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
         const ssize_t bytes_read = read(client_fd, buffer, sizeof(buffer) - 1);
+
+        for(ssize_t i = 0 ; i < bytes_read ; i++) {
+            printf("%c", buffer[i]);
+        }
+
         if (bytes_read <= 0) {
             if (bytes_read < 0) perror("read failed");
             else printf("Client %s:%d disconnected\n", client_ip, client_port);
@@ -48,7 +54,7 @@ void run_server(const int port) {
         exit(1);
     }
 
-    constexpr int reuse = 1;
+    const int reuse = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     struct sockaddr_in serv_addr = {

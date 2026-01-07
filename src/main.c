@@ -2,8 +2,8 @@
 #include <stdio.h>
 
 int main() {
-    setbuf(stdout, nullptr);
-    setbuf(stderr, nullptr);
+    setbuf(stdout, NULL);
+    setbuf(stderr, NULL);
 
     printf("Logs from your program will appear here!\n");
 
