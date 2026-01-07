@@ -14,11 +14,13 @@ int main() {
 
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
+
+   char buffer[1024] = {0};
 	
 	printf("Logs from your program will appear here!\n");
 
 	
-	 int server_fd, client_addr_len;
+	 int server_fd, client_addr_len , new_server;
 	 struct sockaddr_in client_addr;
 	
 	 server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,7 +55,20 @@ int main() {
      printf("Waiting for a client to connect...\n");
      client_addr_len = sizeof(client_addr);
 	
-	 accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *)&client_addr_len);
+	 if((new_server = accept(server_fd, (struct sockaddr *) &client_addr, (socklen_t *)&client_addr_len)) == -1) {
+      perror("Error");
+      return 1;
+     }
+
+
+    memset(buffer, 0, sizeof(buffer));
+
+    ssize_t n = read(new_server, buffer, sizeof(buffer) - 1);
+
+    const char* ping = "+PONG\r\n";
+
+    send(new_server, ping, strlen(ping), 0);
+    
 	 printf("Client connected\n");
 	
 	close(server_fd);
