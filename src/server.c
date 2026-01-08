@@ -1,4 +1,5 @@
 #include "server.h"
+#include "dict.h"
 #include "parser.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -13,6 +14,8 @@
 
 #define BUFFER_SIZE 8192
 #define BACKLOG 10
+
+static dict *kv_store;
 
 void handle_sigchld(int sig) {
   (void)sig;
@@ -33,6 +36,10 @@ static void send_simple_string(int fd, const char *str) {
 }
 
 static void send_bulk_string(int fd, const char *str, size_t len) {
+  if (!str) {
+    send(fd, "$-1\r\n", 5, 0);
+    return;
+  }
   char header[32];
   snprintf(header, sizeof(header), "$%zu\r\n", len);
   send(fd, header, strlen(header), 0);
@@ -56,13 +63,50 @@ static void cmd_echo(int fd, redis_reply *cmd) {
   send_bulk_string(fd, arg->str, arg->len);
 }
 
+static void cmd_set(int fd, redis_reply *cmd) {
+  if (cmd->elements_count < 3) {
+    send_error(fd, "wrong number of arguments for 'set' command");
+    return;
+  }
+  char *key = cmd->elements[1]->str;
+  char *val = cmd->elements[2]->str;
+
+  if (!kv_store)
+    kv_store = dict_create();
+
+  if (dict_set(kv_store, key, val)) {
+    send_simple_string(fd, "OK");
+  } else {
+    send_error(fd, "internal error");
+  }
+}
+
+static void cmd_get(int fd, redis_reply *cmd) {
+  if (cmd->elements_count < 2) {
+    send_error(fd, "wrong number of arguments for 'get' command");
+    return;
+  }
+  char *key = cmd->elements[1]->str;
+
+  if (!kv_store) {
+    send_bulk_string(fd, NULL, 0);
+    return;
+  }
+
+  char *val = dict_get(kv_store, key);
+  send_bulk_string(fd, val, val ? strlen(val) : 0);
+}
+
 typedef struct {
   const char *name;
   cmd_handler_fn handler;
 } cmd_entry;
 
-static cmd_entry commands[] = {
-    {"PING", cmd_ping}, {"ECHO", cmd_echo}, {NULL, NULL}};
+static cmd_entry commands[] = {{"PING", cmd_ping},
+                               {"ECHO", cmd_echo},
+                               {"SET", cmd_set},
+                               {"GET", cmd_get},
+                               {NULL, NULL}};
 
 static void handle_command(int client_fd, redis_reply *cmd) {
   if (cmd->type != REDIS_REPLY_ARRAY || cmd->elements_count < 1) {
